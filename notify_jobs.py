@@ -161,6 +161,15 @@ BOARDS = sorted({
     "ziprecruiter", "zoho", "zocdoc", "zoominfo", "zora", "zscaler", "zuora"
 })
 
+SMARTRECRUITERS_BOARDS = sorted([
+    "adevinta", "albertsons", "asana", "avaloq", "averydennison", "biogen", "bosch", "bose", "cern", 
+    "colliers", "criteo", "datadog", "dropbox", "endava", "equinox", "hootsuite", "ikea", 
+    "kinaxis", "kpmg", "lvmh", "mcdonalds", "nokia", "optimizely", "roblox", "skechers", 
+    "sodexo", "square", "strava", "tacobell", "tiktok", "twitter", "ubisoft2", "visa", 
+    "wabtec", "xerox", "zalando", "amplifon", "aramark", "basf", "brooksbrothers", 
+    "compass", "drdenim", "epic", "heineken", "klarna"
+])
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
