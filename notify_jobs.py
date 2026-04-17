@@ -24,6 +24,7 @@ ROOT_DIR = Path(__file__).parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from job_resume_agent.greenhouse import GreenhouseJobExtractor
+from job_resume_agent.smartrecruiters import SmartRecruitersJobExtractor
 from job_resume_agent.slack_notifier import send_slack_notification
 
 # ---------------------------------------------------------------------------
@@ -202,13 +203,21 @@ def dedupe_jobs(jobs: list) -> list:
     return unique_jobs
 
 
-def process_board(board: str, hours: float):
+def process_greenhouse_board(board: str, hours: float):
     try:
         extractor = GreenhouseJobExtractor(posted_within_hours=hours)
         jobs = extractor.collect([board])
-        return board, jobs, None
+        return f"GH:{board}", jobs, None
     except Exception as exc:
-        return board, [], exc
+        return f"GH:{board}", [], exc
+
+def process_smartrecruiters_board(board: str, hours: float):
+    try:
+        extractor = SmartRecruitersJobExtractor(posted_within_hours=hours)
+        jobs = extractor.collect([board])
+        return f"SR:{board}", jobs, None
+    except Exception as exc:
+        return f"SR:{board}", [], exc
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +236,11 @@ def main() -> None:
     failures = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = [executor.submit(process_board, board, HOURS) for board in BOARDS]
+        futures = []
+        for board in BOARDS:
+            futures.append(executor.submit(process_greenhouse_board, board, HOURS))
+        for board in SMARTRECRUITERS_BOARDS:
+            futures.append(executor.submit(process_smartrecruiters_board, board, HOURS))
 
         for future in concurrent.futures.as_completed(futures):
             board, jobs, exc = future.result()
