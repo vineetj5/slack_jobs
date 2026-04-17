@@ -1,0 +1,30 @@
+# {{ profile.name }}
+
+**{{ draft.headline }}**
+
+- Location: {{ profile.location }}
+- Email: {{ profile.email }}
+- Phone: {{ profile.phone }}
+- LinkedIn: {{ profile.linkedin }}
+
+## Professional Summary
+{% for line in draft.summary %}
+- {{ line }}
+{% endfor %}
+
+## Core Skills
+{{ draft.skills | join(", ") }}
+
+## Experience
+{% for item in draft.selected_experience %}
+### {{ item.role }} | {{ item.company }}
+{% for achievement in item.achievements %}
+- {{ achievement }}
+{% endfor %}
+{% endfor %}
+
+## Tailored Highlights for {{ draft.target_company }}
+{% for bullet in draft.tailored_bullets %}
+- {{ bullet }}
+{% endfor %}
+

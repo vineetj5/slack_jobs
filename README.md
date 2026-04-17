@@ -1,0 +1,128 @@
+# Job Resume Agent
+
+An end-to-end Python project that:
+
+1. scrapes job postings from supplied URLs or local HTML files,
+2. normalizes and scores the jobs against a target profile,
+3. generates a tailored resume draft and cover-letter notes,
+4. runs the flow as an agentic pipeline with clear handoffs.
+
+This repo is built to be useful immediately in a local environment and easy to extend with a real LLM provider later.
+
+## What makes it "agentic"
+
+The workflow is split into specialized agents:
+
+- `PlannerAgent`: turns user goals into search terms and targeting guidance.
+- `ScraperAgent`: pulls jobs from URLs or local HTML and normalizes them.
+- `AnalystAgent`: scores jobs against a candidate profile.
+- `ResumeAgent`: tailors resume summary, skills, and impact bullets.
+- `WriterAgent`: exports markdown and JSON artifacts.
+
+Each agent has a bounded responsibility, passes structured data forward, and can optionally use an LLM if `OPENAI_API_KEY` plus `OPENAI_MODEL` are set. Without those variables, the system uses deterministic heuristics so the project still works end to end.
+
+## Quickstart
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+job-resume-agent demo
+```
+
+The demo command reads a bundled sample job page and sample profile, then writes output to `output/demo`.
+
+## CLI
+
+```bash
+job-resume-agent demo
+job-resume-agent scrape --source data/sample_jobs.html --output output/jobs.json
+job-resume-agent greenhouse --board openai --board https://boards.greenhouse.io/airbnb --output output/greenhouse_jobs.json
+job-resume-agent run --profile data/sample_profile.yaml --source data/sample_jobs.html --outdir output/run
+```
+
+### `demo`
+
+Runs the full pipeline using bundled sample inputs.
+
+### `scrape`
+
+Collects jobs from one or more sources.
+
+- `--source`: local HTML path or remote URL. Can be provided multiple times.
+- `--output`: JSON output file for normalized job data.
+
+### `greenhouse`
+
+Collects public jobs from one or more Greenhouse boards, then keeps roles matching the data, AI/ML, analytics, backend, DevOps, and new-grad role titles from the target role list.
+
+- `--board`: Greenhouse board token or URL. Can be provided multiple times.
+- `--output`: path to write the filtered jobs.
+- `--format`: `json` or `csv`.
+
+### `run`
+
+Runs the complete workflow.
+
+- `--profile`: YAML candidate profile.
+- `--source`: local HTML path or remote URL. Can be provided multiple times.
+- `--outdir`: directory for generated artifacts.
+- `--top-k`: how many top jobs to tailor for.
+
+## Project layout
+
+```text
+src/job_resume_agent/
+  cli.py
+  config.py
+  llm.py
+  models.py
+  resume.py
+  scraper.py
+  workflow.py
+templates/
+  resume.md.j2
+data/
+  sample_jobs.html
+  sample_profile.yaml
+tests/
+  test_workflow.py
+```
+
+## Candidate profile format
+
+```yaml
+name: Jane Doe
+title: Senior Data Analyst
+location: New York, NY
+email: jane@example.com
+phone: "+1-555-111-2222"
+linkedin: linkedin.com/in/janedoe
+summary:
+  - Analytics leader with 6+ years of experience
+skills:
+  - Python
+  - SQL
+experience:
+  - company: Acme Corp
+    role: Senior Data Analyst
+    achievements:
+      - Improved dashboard performance by 45%
+```
+
+## Outputs
+
+Running the workflow creates:
+
+- `jobs.json`: normalized scraped jobs
+- `matches.json`: ranked jobs with reasoning
+- `tailored_resume.md`: markdown resume draft
+- `application_notes.md`: application strategy notes
+- `workflow_report.md`: summary of what each agent did
+
+## Extension ideas
+
+- Add site-specific parsers for LinkedIn, Greenhouse, Lever, Ashby, and Workday.
+- Swap the simple LLM adapter with a richer provider abstraction.
+- Generate PDF output from the markdown resume.
+- Add a browser automation step for application filling.

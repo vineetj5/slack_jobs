@@ -1,0 +1,2 @@
+[console_scripts]
+job-resume-agent = job_resume_agent.cli:app

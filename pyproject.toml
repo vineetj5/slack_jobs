@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "job-resume-agent"
+version = "0.1.0"
+description = "Agentic AI workflow that scrapes jobs and tailors resumes end to end."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "beautifulsoup4>=4.12.3",
+  "jinja2>=3.1.4",
+  "pydantic>=2.8.2",
+  "pyyaml>=6.0.2",
+  "requests>=2.32.3",
+  "rich>=13.7.1",
+  "typer>=0.12.3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+]
+
+[project.scripts]
+job-resume-agent = "job_resume_agent.cli:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

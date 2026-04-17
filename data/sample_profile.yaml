@@ -1,0 +1,41 @@
+name: Jane Doe
+title: Senior Data Analyst
+location: New York, NY
+email: jane@example.com
+phone: "+1-555-111-2222"
+linkedin: linkedin.com/in/janedoe
+summary:
+  - Analytics professional with 7 years of experience driving product and business decisions.
+  - Strong track record of building dashboards, automating reporting, and influencing stakeholders.
+  - Comfortable translating ambiguous business needs into measurable outcomes.
+skills:
+  - Python
+  - SQL
+  - Tableau
+  - dbt
+  - Experimentation
+  - Stakeholder Management
+experience:
+  - company: Acme Health
+    role: Senior Data Analyst
+    achievements:
+      - Improved executive reporting latency by 45% through pipeline redesign.
+      - Built patient-operations dashboards that reduced weekly manual reporting by 12 hours.
+  - company: Mercury Retail
+    role: Data Analyst
+    achievements:
+      - Developed pricing and conversion analyses that informed a 7-figure merchandising strategy.
+      - Automated KPI reporting in SQL and Tableau for cross-functional leadership.
+target_roles:
+  - Senior Data Analyst
+  - Analytics Manager
+target_locations:
+  - New York
+  - Remote
+preferred_keywords:
+  - Python
+  - SQL
+  - Tableau
+  - Experimentation
+  - Dashboard
+
