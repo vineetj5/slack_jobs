@@ -170,20 +170,29 @@ class GreenhouseJobExtractor:
                     continue
 
             offices = [office.get("name") for office in row.get("offices", []) if office.get("name")]
+            location = ", ".join(offices) or "Unknown"
+
+            if not is_usa_location(location):
+                continue
+                
             departments = [
                 department.get("name")
                 for department in row.get("departments", [])
                 if department.get("name")
             ]
             content = row.get("content") or ""
+            description = BeautifulSoup(content, "html.parser").get_text(" ", strip=True)
+
+            if not check_experience(description):
+                continue
 
             jobs.append(
                 JobPosting(
                     title=title,
                     company=company,
-                    location=", ".join(offices) or "Unknown",
+                    location=location,
                     url=row.get("absolute_url"),
-                    description=BeautifulSoup(content, "html.parser").get_text(" ", strip=True),
+                    description=description,
                     source=f"greenhouse:{board_token}",
                     posted_at=row.get("updated_at"),
                     tags=departments,
@@ -208,3 +217,66 @@ def _is_within_cutoff(updated_raw: str, cutoff: datetime) -> bool:
     except (ValueError, AttributeError):
         # If we cannot parse the timestamp, include the job to be safe
         return True
+
+
+def is_usa_location(location: str) -> bool:
+    loc = location.lower()
+    
+    non_us = [
+        "emea", "apac", "uk", "london", "canada", "toronto", "vancouver", "ontario",
+        "india", "bengaluru", "bangalore", "delhi", "mumbai", "europe", "germany",
+        "berlin", "france", "paris", "australia", "sydney", "melbourne", "ireland",
+        "dublin", "singapore", "mexico", "brazil", "spain", "poland"
+    ]
+    if any(country in loc for country in non_us) and "us" not in loc and "united states" not in loc:
+        return False
+
+    us_terms = [" us", ", us", "usa", "united states", "remote - us", "remote (us)", "remote, us"]
+    if any(t in loc for t in us_terms) or loc == "us" or loc == "remote" or "remote" in loc:
+        return True
+        
+    states = [
+        "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware", "florida", 
+        "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", 
+        "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", 
+        "nevada", "new hampshire", "new jersey", "new mexico", "new york", "north carolina", "north dakota", 
+        "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", 
+        "texas", "utah", "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming",
+        ", al", ", ak", ", az", ", ar", ", ca", ", co", ", ct", ", de", ", fl", ", ga", ", hi", ", id", ", il", ", in", ", ia", ", ks", 
+        ", ky", ", la", ", me", ", md", ", ma", ", mi", ", mn", ", ms", ", mo", ", mt", ", ne", ", nv", ", nh", ", nj", ", nm", ", ny", 
+        ", nc", ", nd", ", oh", ", ok", ", or", ", pa", ", ri", ", sc", ", sd", ", tn", ", tx", ", ut", ", vt", ", va", ", wa", ", wv", 
+        ", wi", ", wy", "san francisco", "new york", "seattle", "austin", "boston", "chicago", "los angeles", "atlanta"
+    ]
+    if any(s in loc for s in states):
+        return True
+        
+    return True
+
+def check_experience(description: str) -> bool:
+    pattern = re.compile(r'(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)[^.?!]{0,40}experience', re.IGNORECASE)
+    matches = pattern.finditer(description)
+    
+    yoes = []
+    for m in matches:
+        try:
+            val = int(m.group(1))
+            if 0 <= val <= 25:
+                yoes.append(val)
+        except:
+            pass
+            
+    pattern2 = re.compile(r'experience[^.?!]{0,40}?(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)', re.IGNORECASE)
+    matches2 = pattern2.finditer(description)
+    for m in matches2:
+        try:
+            val = int(m.group(1))
+            if 0 <= val <= 25:
+                yoes.append(val)
+        except:
+            pass
+
+    if not yoes:
+        return True
+        
+    return min(yoes) <= 3
+
