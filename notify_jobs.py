@@ -25,6 +25,8 @@ sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from job_resume_agent.greenhouse import GreenhouseJobExtractor
 from job_resume_agent.smartrecruiters import SmartRecruitersJobExtractor
+from job_resume_agent.lever import LeverJobExtractor
+from job_resume_agent.ashby import AshbyJobExtractor
 from job_resume_agent.slack_notifier import send_slack_notification
 
 # ---------------------------------------------------------------------------
@@ -46,6 +48,8 @@ def load_boards(filename: str) -> list[str]:
 
 BOARDS = load_boards("greenhouse_boards.txt")
 SMARTRECRUITERS_BOARDS = load_boards("smartrecruiters_boards.txt")
+LEVER_BOARDS = load_boards("lever_boards.txt")
+ASHBY_BOARDS = load_boards("ashby_boards.txt")
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -105,6 +109,22 @@ def process_smartrecruiters_board(board: str, hours: float):
     except Exception as exc:
         return f"SR:{board}", [], exc
 
+def process_lever_board(board: str, hours: float):
+    try:
+        extractor = LeverJobExtractor(posted_within_hours=hours)
+        jobs = extractor.collect([board])
+        return f"LV:{board}", jobs, None
+    except Exception as exc:
+        return f"LV:{board}", [], exc
+
+def process_ashby_board(board: str, hours: float):
+    try:
+        extractor = AshbyJobExtractor(posted_within_hours=hours)
+        jobs = extractor.collect([board])
+        return f"AS:{board}", jobs, None
+    except Exception as exc:
+        return f"AS:{board}", [], exc
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -114,6 +134,9 @@ def main() -> None:
     run_at = datetime.now(tz=timezone.utc)
     log.info("=== Hourly job scan started at %s UTC ===", run_at.strftime("%Y-%m-%d %H:%M:%S"))
     log.info("Querying %d Greenhouse boards (last %.0fh)...", len(BOARDS), HOURS)
+    log.info("Querying %d SmartRecruiters boards (last %.0fh)...", len(SMARTRECRUITERS_BOARDS), HOURS)
+    log.info("Querying %d Lever boards (last %.0fh)...", len(LEVER_BOARDS), HOURS)
+    log.info("Querying %d Ashby boards (last %.0fh)...", len(ASHBY_BOARDS), HOURS)
 
     if not SLACK_WEBHOOK_URL:
         log.warning("SLACK_WEBHOOK_URL is not set. Slack notifications will be skipped.")
@@ -127,6 +150,10 @@ def main() -> None:
             futures.append(executor.submit(process_greenhouse_board, board, HOURS))
         for board in SMARTRECRUITERS_BOARDS:
             futures.append(executor.submit(process_smartrecruiters_board, board, HOURS))
+        for board in LEVER_BOARDS:
+            futures.append(executor.submit(process_lever_board, board, HOURS))
+        for board in ASHBY_BOARDS:
+            futures.append(executor.submit(process_ashby_board, board, HOURS))
 
         for future in concurrent.futures.as_completed(futures):
             board, jobs, exc = future.result()
