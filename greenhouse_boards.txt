@@ -22,7 +22,6 @@ amazon
 amplitude
 amwell
 android
-anduril
 andurilindustries
 angellist
 anthropic
@@ -32,12 +31,11 @@ apolloio
 applications
 appliedintuition
 apptronik
-arc
 arcadia
 archer
 armory
 array
-artifact
+artefact
 asana
 ashby
 astronomer
@@ -259,6 +257,7 @@ getyourguide
 ghost
 ginkgobioworks
 gitlab
+gleanwork
 glide
 glitch
 glossier
@@ -441,6 +440,7 @@ nexthink
 nexus
 niantic
 nintendo
+nimblerobotics
 nira
 nomic
 noom
