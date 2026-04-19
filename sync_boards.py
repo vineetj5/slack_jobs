@@ -16,11 +16,27 @@ SR_FILE = ROOT_DIR / "smartrecruiters_boards.txt"
 LV_FILE = ROOT_DIR / "lever_boards.txt"
 AS_FILE = ROOT_DIR / "ashby_boards.txt"
 
+WD_FILE = ROOT_DIR / "workday_boards.txt"
+
 def check_greenhouse(name):
     try:
         r = requests.get(f"https://boards-api.greenhouse.io/v1/boards/{name}/jobs", timeout=5)
         return name if r.status_code == 200 else None
     except: return None
+
+def check_workday(name):
+    # Common Workday site IDs
+    sites = ["External", "External_Career_Site", "Workday", "Careers", "Global_External_Career_Site"]
+    for s in sites:
+        try:
+            url = f"https://{name}.myworkdayjobs.com/wday/cxs/{name}/{s}/jobs"
+            payload = {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}
+            r = requests.post(url, json=payload, timeout=5)
+            if r.status_code == 200:
+                return f"{name}/{s}"
+        except:
+            continue
+    return None
 
 def check_smartrecruiters(name):
     try:
@@ -44,12 +60,13 @@ def check_ashby(name):
     except: return None
 
 def probe_company(name):
-    # Try all 4. Priority doesn't strictly matter but Greenhouse/Lever are common.
     log.info(f"Probing: {name}")
     if check_greenhouse(name): return name, "greenhouse"
     if check_lever(name): return name, "lever"
     if check_ashby(name): return name, "ashby"
     if check_smartrecruiters(name): return name, "smartrecruiters"
+    res = check_workday(name)
+    if res: return res, "workday"
     return name, None
 
 def load_list(path):
@@ -74,15 +91,17 @@ def main():
     sr_list = set()
     lv_list = set()
     as_list = set()
+    wd_list = set()
 
-    for name, board_type in results:
-        if board_type == "greenhouse": gh_list.add(name)
-        elif board_type == "smartrecruiters": sr_list.add(name)
-        elif board_type == "lever": lv_list.add(name)
-        elif board_type == "ashby": as_list.add(name)
+    for entry, board_type in results:
+        if board_type == "greenhouse": gh_list.add(entry)
+        elif board_type == "smartrecruiters": sr_list.add(entry)
+        elif board_type == "lever": lv_list.add(entry)
+        elif board_type == "ashby": as_list.add(entry)
+        elif board_type == "workday": wd_list.add(entry)
         else:
-            if name:
-                log.warning(f"  ✗ Could not identify board for: {name}")
+            if entry:
+                log.warning(f"  ✗ Could not identify board for: {entry}")
 
     # Write back sorted
     def write_sorted(path, items):
@@ -92,12 +111,14 @@ def main():
     write_sorted(SR_FILE, sr_list)
     write_sorted(LV_FILE, lv_list)
     write_sorted(AS_FILE, as_list)
+    write_sorted(WD_FILE, wd_list)
     
     log.info("Successfully updated all board lists.")
     log.info(f"  Greenhouse: {len(gh_list)}")
     log.info(f"  SmartRecruiters: {len(sr_list)}")
     log.info(f"  Lever: {len(lv_list)}")
     log.info(f"  Ashby: {len(as_list)}")
+    log.info(f"  Workday: {len(wd_list)}")
 
 if __name__ == "__main__":
     main()

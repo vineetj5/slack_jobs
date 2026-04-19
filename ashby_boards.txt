@@ -87,6 +87,7 @@ substack
 supabase
 supercell
 sweep
+take2
 tilt
 tonal
 twenty

@@ -27,6 +27,7 @@ from job_resume_agent.greenhouse import GreenhouseJobExtractor
 from job_resume_agent.smartrecruiters import SmartRecruitersJobExtractor
 from job_resume_agent.lever import LeverJobExtractor
 from job_resume_agent.ashby import AshbyJobExtractor
+from job_resume_agent.workday import WorkdayJobExtractor
 from job_resume_agent.slack_notifier import send_slack_notification
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,7 @@ BOARDS = load_boards("greenhouse_boards.txt")
 SMARTRECRUITERS_BOARDS = load_boards("smartrecruiters_boards.txt")
 LEVER_BOARDS = load_boards("lever_boards.txt")
 ASHBY_BOARDS = load_boards("ashby_boards.txt")
+WORKDAY_BOARDS = load_boards("workday_boards.txt")
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -125,6 +127,14 @@ def process_ashby_board(board: str, hours: float):
     except Exception as exc:
         return f"AS:{board}", [], exc
 
+def process_workday_board(board: str, hours: float):
+    try:
+        extractor = WorkdayJobExtractor(posted_within_hours=hours)
+        jobs = extractor.collect([board])
+        return f"WD:{board}", jobs, None
+    except Exception as exc:
+        return f"WD:{board}", [], exc
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -137,6 +147,7 @@ def main() -> None:
     log.info("Querying %d SmartRecruiters boards (last %.0fh)...", len(SMARTRECRUITERS_BOARDS), HOURS)
     log.info("Querying %d Lever boards (last %.0fh)...", len(LEVER_BOARDS), HOURS)
     log.info("Querying %d Ashby boards (last %.0fh)...", len(ASHBY_BOARDS), HOURS)
+    log.info("Querying %d Workday boards (last %.0fh)...", len(WORKDAY_BOARDS), HOURS)
 
     if not SLACK_WEBHOOK_URL:
         log.warning("SLACK_WEBHOOK_URL is not set. Slack notifications will be skipped.")
@@ -154,6 +165,8 @@ def main() -> None:
             futures.append(executor.submit(process_lever_board, board, HOURS))
         for board in ASHBY_BOARDS:
             futures.append(executor.submit(process_ashby_board, board, HOURS))
+        for board in WORKDAY_BOARDS:
+            futures.append(executor.submit(process_workday_board, board, HOURS))
 
         for future in concurrent.futures.as_completed(futures):
             board, jobs, exc = future.result()
