@@ -73,7 +73,36 @@ def normalize_greenhouse_board(board: str) -> str:
     raise ValueError(f"Could not find a Greenhouse board token in {board!r}")
 
 
+# Titles containing these terms are excluded regardless of role match
+STAFF_BLOCKLIST = [
+    "staff engineer",
+    "staff software",
+    "staff data",
+    "staff machine learning",
+    "staff ml",
+    "staff backend",
+    "staff full stack",
+    "staff fullstack",
+    "staff platform",
+    "staff infrastructure",
+    "staff site reliability",
+    "staff sre",
+    "senior staff",
+    "principal engineer",
+    "principal software",
+    "distinguished engineer",
+]
+
+
+def is_staff_title(title: str) -> bool:
+    """Return True if the title indicates a staff-level (or above) role."""
+    normalized = _normalize_text(title)
+    return any(bl in normalized for bl in STAFF_BLOCKLIST)
+
+
 def role_matches_title(title: str, role_terms: Iterable[str] = GREENHOUSE_ROLE_TERMS) -> bool:
+    if is_staff_title(title):
+        return False
     normalized_title = _normalize_text(title)
     return any(_normalize_text(term) in normalized_title for term in role_terms)
 
@@ -249,8 +278,9 @@ def is_usa_location(location: str) -> bool:
     ]
     if any(s in loc for s in states):
         return True
-        
-    return True
+
+    # Default: reject unknown locations to ensure only US jobs pass through
+    return False
 
 def check_experience(description: str) -> bool:
     pattern = re.compile(r'(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)[^.?!]{0,40}experience', re.IGNORECASE)
