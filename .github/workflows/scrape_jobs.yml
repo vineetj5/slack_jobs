@@ -1,9 +1,9 @@
-name: Hourly Greenhouse Job Scraper
+name: Job Scraper (Every 45 min)
 
 on:
   schedule:
-    # Run at minute 0 past every hour
-    - cron: '0 * * * *'
+    # Run every 45 minutes (fires at :00 and :45 of each hour)
+    - cron: '*/45 * * * *'
   # Allow manual triggering from the GitHub Actions tab
   workflow_dispatch:
 
@@ -28,15 +28,21 @@ jobs:
 
       - name: Run job scraper
         env:
-          # Pulls the secret configured in GitHub repository settings
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           python notify_jobs.py
           
       - name: Upload extracted jobs as artifact
         uses: actions/upload-artifact@v4
-        # Uploads the generated CSV/JSON files so you can easily download them from the Actions UI if needed
         with:
           name: latest-jobs-data
           path: output/
           retention-days: 7
+
+      - name: Persist last run timestamp
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_run.txt
+          git diff --cached --quiet || git commit -m "chore: update last_run.txt [skip ci]"
+          git push

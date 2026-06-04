@@ -35,9 +35,32 @@ from job_resume_agent.slack_notifier import send_slack_notification
 # ---------------------------------------------------------------------------
 
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "").strip()
-HOURS = 1.0
+DEFAULT_HOURS = 1.0
 MAX_WORKERS = 20
 NOTIFY_ON_EMPTY = False
+LAST_RUN_FILE = ROOT_DIR / "last_run.txt"
+
+
+def compute_hours_since_last_run() -> float:
+    """Read the last run timestamp from last_run.txt and return hours elapsed.
+    Falls back to DEFAULT_HOURS if the file doesn't exist or can't be parsed."""
+    if not LAST_RUN_FILE.exists():
+        return DEFAULT_HOURS
+    try:
+        raw = LAST_RUN_FILE.read_text("utf-8").strip()
+        last_run = datetime.fromisoformat(raw)
+        if last_run.tzinfo is None:
+            last_run = last_run.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(tz=timezone.utc) - last_run).total_seconds() / 3600.0
+        # Clamp: at least 0.25h (15 min) and at most 24h to avoid huge windows
+        return max(0.25, min(elapsed, 24.0))
+    except (ValueError, OSError):
+        return DEFAULT_HOURS
+
+
+def save_last_run_time(run_at: datetime) -> None:
+    """Persist the current run timestamp to last_run.txt."""
+    LAST_RUN_FILE.write_text(run_at.isoformat(), encoding="utf-8")
 
 def load_boards(filename: str) -> list[str]:
     path = ROOT_DIR / filename
@@ -142,12 +165,14 @@ def process_workday_board(board: str, hours: float):
 
 def main() -> None:
     run_at = datetime.now(tz=timezone.utc)
-    log.info("=== Hourly job scan started at %s UTC ===", run_at.strftime("%Y-%m-%d %H:%M:%S"))
-    log.info("Querying %d Greenhouse boards (last %.0fh)...", len(BOARDS), HOURS)
-    log.info("Querying %d SmartRecruiters boards (last %.0fh)...", len(SMARTRECRUITERS_BOARDS), HOURS)
-    log.info("Querying %d Lever boards (last %.0fh)...", len(LEVER_BOARDS), HOURS)
-    log.info("Querying %d Ashby boards (last %.0fh)...", len(ASHBY_BOARDS), HOURS)
-    log.info("Querying %d Workday boards (last %.0fh)...", len(WORKDAY_BOARDS), HOURS)
+    HOURS = compute_hours_since_last_run()
+    log.info("=== Job scan started at %s UTC ===", run_at.strftime("%Y-%m-%d %H:%M:%S"))
+    log.info("Scrape window: %.2f hours (since last run)", HOURS)
+    log.info("Querying %d Greenhouse boards...", len(BOARDS))
+    log.info("Querying %d SmartRecruiters boards...", len(SMARTRECRUITERS_BOARDS))
+    log.info("Querying %d Lever boards...", len(LEVER_BOARDS))
+    log.info("Querying %d Ashby boards...", len(ASHBY_BOARDS))
+    log.info("Querying %d Workday boards...", len(WORKDAY_BOARDS))
 
     if not SLACK_WEBHOOK_URL:
         log.warning("SLACK_WEBHOOK_URL is not set. Slack notifications will be skipped.")
@@ -217,7 +242,10 @@ def main() -> None:
     else:
         log.info("Skipping Slack notification because webhook is not configured.")
 
-    log.info("=== Hourly job scan complete ===")
+    # Persist the current run time for next invocation
+    save_last_run_time(run_at)
+    log.info("Saved last run time: %s", run_at.isoformat())
+    log.info("=== Job scan complete ===")
 
 
 if __name__ == "__main__":
