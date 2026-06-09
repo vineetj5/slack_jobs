@@ -64,7 +64,7 @@ class SmartRecruitersJobExtractor:
 
             # --- Recency filter ---
             if cutoff is not None:
-                updated_raw = row.get("releasedDate")
+                updated_raw = row.get("updatedDate") or row.get("releasedDate")
                 if not updated_raw or not self._is_within_cutoff(updated_raw, cutoff):
                     continue
 

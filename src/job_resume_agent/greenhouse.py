@@ -194,7 +194,7 @@ class GreenhouseJobExtractor:
 
             # --- Recency filter ---
             if cutoff is not None:
-                updated_raw = row.get("updated_at")
+                updated_raw = row.get("updated_at") or row.get("first_published")
                 if not updated_raw or not _is_within_cutoff(updated_raw, cutoff):
                     continue
 

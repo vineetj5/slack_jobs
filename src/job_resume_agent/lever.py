@@ -63,9 +63,9 @@ class LeverJobExtractor:
                 continue
 
             # --- Recency filter ---
-            # Lever uses 'createdAt' (millis)
+            # Lever uses 'updatedAt' or 'createdAt' (millis)
             if cutoff is not None:
-                created_at_ms = row.get("createdAt")
+                created_at_ms = row.get("updatedAt") or row.get("createdAt")
                 if created_at_ms:
                     ts = datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc)
                     if ts < cutoff:

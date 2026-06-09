@@ -60,9 +60,9 @@ class AshbyJobExtractor:
                 continue
 
             # --- Recency filter ---
-            # Ashby uses 'publishedAt' (ISO8601)
+            # Ashby uses 'updatedAt' or 'publishedAt' (ISO8601)
             if cutoff is not None:
-                published_raw = row.get("publishedAt")
+                published_raw = row.get("updatedAt") or row.get("publishedAt")
                 if published_raw:
                     ts = datetime.fromisoformat(published_raw.replace("Z", "+00:00"))
                     if ts.tzinfo is None:
