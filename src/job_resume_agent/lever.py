@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title, is_reposted_job
 from .models import JobPosting
 
 
@@ -64,8 +64,11 @@ class LeverJobExtractor:
 
             # --- Recency filter ---
             # Lever uses 'updatedAt' or 'createdAt' (millis)
+            raw_updated = row.get("updatedAt")
+            raw_published = row.get("createdAt")
+            
             if cutoff is not None:
-                created_at_ms = row.get("updatedAt") or row.get("createdAt")
+                created_at_ms = raw_updated or raw_published
                 if created_at_ms:
                     ts = datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc)
                     if ts < cutoff:
@@ -88,6 +91,8 @@ class LeverJobExtractor:
 
             if not check_experience(description):
                 continue
+                
+            is_reposted = is_reposted_job(raw_updated, raw_published)
 
             jobs.append(
                 JobPosting(
@@ -97,8 +102,9 @@ class LeverJobExtractor:
                     url=row.get("hostedUrl"),
                     description=description,
                     source=f"lever:{company_id}",
-                    posted_at=datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc).isoformat() if created_at_ms else None,
+                    posted_at=datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc).isoformat() if 'created_at_ms' in locals() and created_at_ms else None,
                     tags=[row.get("categories", {}).get("team")] if row.get("categories", {}).get("team") else [],
+                    is_reposted=is_reposted,
                 )
             )
         return jobs

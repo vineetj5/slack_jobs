@@ -46,6 +46,8 @@ def _build_job_block(job: JobPosting) -> list[dict]:
     tags_text = f"  •  _{', '.join(job.tags)}_" if job.tags else ""
     location = job.location or "Remote / Unknown"
     posted = _format_posted_at(job.posted_at)
+    
+    reposted_badge = " :recycle: *(Reposted)*" if job.is_reposted else ""
 
     blocks: list[dict] = [
         {
@@ -53,7 +55,7 @@ def _build_job_block(job: JobPosting) -> list[dict]:
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"*<{job.url}|{job.title}>*\n"
+                    f"*<{job.url}|{job.title}>*{reposted_badge}\n"
                     f":office: *{company_display}*{tags_text}\n"
                     f":round_pushpin: {location}   :clock1: {posted}"
                 ),

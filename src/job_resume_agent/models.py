@@ -16,6 +16,7 @@ class JobPosting(BaseModel):
     source: str
     posted_at: str | None = None
     tags: list[str] = Field(default_factory=list)
+    is_reposted: bool = False
 
 
 class ExperienceItem(BaseModel):

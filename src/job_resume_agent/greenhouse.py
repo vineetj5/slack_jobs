@@ -193,10 +193,15 @@ class GreenhouseJobExtractor:
                 continue
 
             # --- Recency filter ---
+            raw_updated = row.get("updated_at")
+            raw_published = row.get("first_published")
+            
             if cutoff is not None:
-                updated_raw = row.get("updated_at") or row.get("first_published")
+                updated_raw = raw_updated or raw_published
                 if not updated_raw or not _is_within_cutoff(updated_raw, cutoff):
                     continue
+            
+            is_reposted = is_reposted_job(raw_updated, raw_published)
 
             offices = [office.get("name") for office in row.get("offices", []) if office.get("name")]
             location = ", ".join(offices) or "Unknown"
@@ -223,8 +228,9 @@ class GreenhouseJobExtractor:
                     url=row.get("absolute_url"),
                     description=description,
                     source=f"greenhouse:{board_token}",
-                    posted_at=row.get("updated_at"),
+                    posted_at=row.get("updated_at") or row.get("first_published"),
                     tags=departments,
+                    is_reposted=is_reposted,
                 )
             )
         return jobs
@@ -246,6 +252,29 @@ def _is_within_cutoff(updated_raw: str, cutoff: datetime) -> bool:
     except (ValueError, AttributeError):
         # If we cannot parse the timestamp, include the job to be safe
         return True
+
+
+def is_reposted_job(updated_raw: str | int | float | None, published_raw: str | int | float | None) -> bool:
+    """Return True if updated_raw is more than 5 hours after published_raw."""
+    if not updated_raw or not published_raw:
+        return False
+    try:
+        def parse_ts(val):
+            if isinstance(val, (int, float)):
+                if val > 1e11:  # likely millis
+                    return datetime.fromtimestamp(val / 1000.0, tz=timezone.utc)
+                return datetime.fromtimestamp(val, tz=timezone.utc)
+            ts = datetime.fromisoformat(str(val).replace("Z", "+00:00"))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            return ts
+
+        updated_ts = parse_ts(updated_raw)
+        published_ts = parse_ts(published_raw)
+        diff_hours = (updated_ts - published_ts).total_seconds() / 3600.0
+        return diff_hours > 5.0
+    except Exception:
+        return False
 
 
 def is_usa_location(location: str) -> bool:

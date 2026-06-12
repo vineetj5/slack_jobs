@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title, is_reposted_job
 from .models import JobPosting
 
 
@@ -61,8 +61,11 @@ class AshbyJobExtractor:
 
             # --- Recency filter ---
             # Ashby uses 'updatedAt' or 'publishedAt' (ISO8601)
+            raw_updated = row.get("updatedAt")
+            raw_published = row.get("publishedAt")
+            
             if cutoff is not None:
-                published_raw = row.get("updatedAt") or row.get("publishedAt")
+                published_raw = raw_updated or raw_published
                 if published_raw:
                     ts = datetime.fromisoformat(published_raw.replace("Z", "+00:00"))
                     if ts.tzinfo is None:
@@ -81,6 +84,8 @@ class AshbyJobExtractor:
 
             if not check_experience(description):
                 continue
+                
+            is_reposted = is_reposted_job(raw_updated, raw_published)
 
             jobs.append(
                 JobPosting(
@@ -90,8 +95,9 @@ class AshbyJobExtractor:
                     url=row.get("jobUrl"),
                     description=description,
                     source=f"ashby:{company_id}",
-                    posted_at=published_raw,
+                    posted_at=published_raw if 'published_raw' in locals() else None,
                     tags=[row.get("department")] if row.get("department") else [],
+                    is_reposted=is_reposted,
                 )
             )
         return jobs

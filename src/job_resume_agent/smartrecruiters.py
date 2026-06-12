@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title, is_reposted_job
 from .models import JobPosting
 
 
@@ -63,8 +63,11 @@ class SmartRecruitersJobExtractor:
                 continue
 
             # --- Recency filter ---
+            raw_updated = row.get("updatedDate")
+            raw_published = row.get("releasedDate")
+            
             if cutoff is not None:
-                updated_raw = row.get("updatedDate") or row.get("releasedDate")
+                updated_raw = raw_updated or raw_published
                 if not updated_raw or not self._is_within_cutoff(updated_raw, cutoff):
                     continue
 
@@ -119,6 +122,8 @@ class SmartRecruitersJobExtractor:
 
             if not check_experience(description):
                 continue
+                
+            is_reposted = is_reposted_job(raw_updated, raw_published)
 
             jobs.append(
                 JobPosting(
@@ -128,8 +133,9 @@ class SmartRecruitersJobExtractor:
                     url=absolute_url,
                     description=description,
                     source=f"smartrecruiters:{company_token}",
-                    posted_at=row.get("releasedDate"),
+                    posted_at=row.get("updatedDate") or row.get("releasedDate"),
                     tags=departments,
+                    is_reposted=is_reposted,
                 )
             )
 
