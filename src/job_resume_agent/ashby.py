@@ -98,6 +98,7 @@ class AshbyJobExtractor:
                     posted_at=published_raw if 'published_raw' in locals() else None,
                     tags=[row.get("department")] if row.get("department") else [],
                     is_reposted=is_reposted,
+                    original_published_at=raw_published,
                 )
             )
         return jobs

@@ -35,7 +35,13 @@ def _format_posted_at(posted_at: str | None) -> str:
         if diff_minutes < 60:
             return f"{diff_minutes}m ago"
         hours = diff_minutes // 60
-        return f"{hours}h ago"
+        if hours < 48:
+            return f"{hours}h ago"
+        days = hours // 24
+        if days < 30:
+            return f"{days}d ago"
+        months = days // 30
+        return f"{months}mo ago"
     except (ValueError, AttributeError):
         return posted_at
 
@@ -47,7 +53,10 @@ def _build_job_block(job: JobPosting) -> list[dict]:
     location = job.location or "Remote / Unknown"
     posted = _format_posted_at(job.posted_at)
     
-    reposted_badge = " :recycle: *(Reposted)*" if job.is_reposted else ""
+    reposted_badge = ""
+    if job.is_reposted:
+        orig_time = _format_posted_at(job.original_published_at)
+        reposted_badge = f" :recycle: *(Reposted - originally {orig_time})*"
 
     blocks: list[dict] = [
         {

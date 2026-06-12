@@ -293,6 +293,7 @@ class GreenhouseJobExtractor:
                     posted_at=row.get("updated_at") or row.get("first_published"),
                     tags=departments,
                     is_reposted=is_reposted,
+                    original_published_at=raw_published,
                 )
             )
         return jobs

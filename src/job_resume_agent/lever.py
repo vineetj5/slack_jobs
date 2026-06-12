@@ -105,6 +105,7 @@ class LeverJobExtractor:
                     posted_at=datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc).isoformat() if 'created_at_ms' in locals() and created_at_ms else None,
                     tags=[row.get("categories", {}).get("team")] if row.get("categories", {}).get("team") else [],
                     is_reposted=is_reposted,
+                    original_published_at=datetime.fromtimestamp(raw_published / 1000.0, tz=timezone.utc).isoformat() if raw_published else None,
                 )
             )
         return jobs

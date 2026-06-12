@@ -136,6 +136,7 @@ class SmartRecruitersJobExtractor:
                     posted_at=row.get("updatedDate") or row.get("releasedDate"),
                     tags=departments,
                     is_reposted=is_reposted,
+                    original_published_at=raw_published,
                 )
             )
 
