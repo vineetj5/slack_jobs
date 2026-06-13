@@ -28,6 +28,7 @@ from job_resume_agent.smartrecruiters import SmartRecruitersJobExtractor
 from job_resume_agent.lever import LeverJobExtractor
 from job_resume_agent.ashby import AshbyJobExtractor
 from job_resume_agent.workday import WorkdayJobExtractor
+from job_resume_agent.amazon import AmazonJobExtractor
 from job_resume_agent.slack_notifier import send_slack_notification
 
 # ---------------------------------------------------------------------------
@@ -159,6 +160,14 @@ def process_workday_board(board: str, hours: float):
     except Exception as exc:
         return f"WD:{board}", [], exc
 
+def process_amazon(hours: float):
+    try:
+        extractor = AmazonJobExtractor(posted_within_hours=hours)
+        jobs = extractor.collect()
+        return "amazon", jobs, None
+    except Exception as exc:
+        return "amazon", [], exc
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -174,6 +183,7 @@ def main() -> None:
     log.info("Querying %d Lever boards...", len(LEVER_BOARDS))
     log.info("Querying %d Ashby boards...", len(ASHBY_BOARDS))
     log.info("Querying %d Workday boards...", len(WORKDAY_BOARDS))
+    log.info("Querying Amazon Jobs (amazon.jobs)...")
 
     if not SLACK_WEBHOOK_URL:
         log.warning("SLACK_WEBHOOK_URL is not set. USA Slack notifications will be skipped.")
@@ -195,6 +205,7 @@ def main() -> None:
             futures.append(executor.submit(process_ashby_board, board, HOURS))
         for board in WORKDAY_BOARDS:
             futures.append(executor.submit(process_workday_board, board, HOURS))
+        futures.append(executor.submit(process_amazon, HOURS))
 
         for future in concurrent.futures.as_completed(futures):
             board, jobs, exc = future.result()
