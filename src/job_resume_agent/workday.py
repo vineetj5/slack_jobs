@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title
 from .models import JobPosting
 
 log = logging.getLogger(__name__)
@@ -90,7 +90,8 @@ class WorkdayJobExtractor:
 
             # Location: Workday uses 'locationsText' in results
             location = row.get("locationsText") or "Unknown"
-            if not is_usa_location(location):
+            region = get_target_region(location)
+            if not region:
                 continue
 
             # Need detail for description
@@ -127,6 +128,7 @@ class WorkdayJobExtractor:
                     source=f"workday:{tenant}",
                     posted_at=row.get("postedOn"),
                     tags=[row.get("hiringOrganization")] if row.get("hiringOrganization") else [],
+                    region=region,
                 )
             )
 

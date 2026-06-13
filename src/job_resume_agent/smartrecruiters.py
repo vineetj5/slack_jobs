@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title, is_reposted_job
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job
 from .models import JobPosting
 
 
@@ -84,7 +84,8 @@ class SmartRecruitersJobExtractor:
 
             location = ", ".join(loc_parts) or "Unknown"
 
-            if not is_usa_location(location):
+            region = get_target_region(location)
+            if not region:
                 continue
 
             company_name = row.get("company", {}).get("name") or company_token
@@ -137,6 +138,7 @@ class SmartRecruitersJobExtractor:
                     tags=departments,
                     is_reposted=is_reposted,
                     original_published_at=raw_published,
+                    region=region,
                 )
             )
 

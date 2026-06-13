@@ -18,6 +18,7 @@ class JobPosting(BaseModel):
     tags: list[str] = Field(default_factory=list)
     is_reposted: bool = False
     original_published_at: str | int | float | None = None
+    region: str = "Unknown"
 
 
 class ExperienceItem(BaseModel):

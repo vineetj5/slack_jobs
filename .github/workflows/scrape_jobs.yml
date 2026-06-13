@@ -32,6 +32,7 @@ jobs:
       - name: Run job scraper
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_INDIA_WEBHOOK_URL: ${{ secrets.SLACK_INDIA_WEBHOOK_URL }}
         run: |
           python notify_jobs.py
           

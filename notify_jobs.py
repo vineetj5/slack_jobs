@@ -35,6 +35,7 @@ from job_resume_agent.slack_notifier import send_slack_notification
 # ---------------------------------------------------------------------------
 
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "").strip()
+SLACK_INDIA_WEBHOOK_URL = os.environ.get("SLACK_INDIA_WEBHOOK_URL", "").strip()
 DEFAULT_HOURS = 1.0
 MAX_WORKERS = 20
 NOTIFY_ON_EMPTY = False
@@ -175,7 +176,9 @@ def main() -> None:
     log.info("Querying %d Workday boards...", len(WORKDAY_BOARDS))
 
     if not SLACK_WEBHOOK_URL:
-        log.warning("SLACK_WEBHOOK_URL is not set. Slack notifications will be skipped.")
+        log.warning("SLACK_WEBHOOK_URL is not set. USA Slack notifications will be skipped.")
+    if not SLACK_INDIA_WEBHOOK_URL:
+        log.warning("SLACK_INDIA_WEBHOOK_URL is not set. India Slack notifications will be skipped.")
 
     all_jobs = []
     failures = []
@@ -206,7 +209,10 @@ def main() -> None:
 
     all_jobs = dedupe_jobs(all_jobs)
 
-    log.info("Total unique jobs found: %d", len(all_jobs))
+    usa_jobs = [j for j in all_jobs if j.region == "USA"]
+    india_jobs = [j for j in all_jobs if j.region == "INDIA"]
+
+    log.info("Total unique jobs found: %d (%d USA, %d India)", len(all_jobs), len(usa_jobs), len(india_jobs))
     log.info("Boards with errors: %d", len(failures))
 
     out_dir = ROOT_DIR / "output"
@@ -229,18 +235,32 @@ def main() -> None:
     log.info("Saved CSV   → %s", csv_path.resolve())
 
     if SLACK_WEBHOOK_URL:
-        log.info("Sending Slack notification...")
+        log.info("Sending USA Slack notification (%d jobs)...", len(usa_jobs))
         ok = send_slack_notification(
-            all_jobs,
+            usa_jobs,
             SLACK_WEBHOOK_URL,
             notify_on_empty=NOTIFY_ON_EMPTY,
         )
         if ok:
-            log.info("✅ Slack notification sent successfully.")
+            log.info("✅ USA Slack notification sent successfully.")
         else:
-            log.error("❌ Slack notification failed — check logs above.")
+            log.error("❌ USA Slack notification failed — check logs above.")
     else:
-        log.info("Skipping Slack notification because webhook is not configured.")
+        log.info("Skipping USA Slack notification because webhook is not configured.")
+
+    if SLACK_INDIA_WEBHOOK_URL:
+        log.info("Sending India Slack notification (%d jobs)...", len(india_jobs))
+        ok_india = send_slack_notification(
+            india_jobs,
+            SLACK_INDIA_WEBHOOK_URL,
+            notify_on_empty=NOTIFY_ON_EMPTY,
+        )
+        if ok_india:
+            log.info("✅ India Slack notification sent successfully.")
+        else:
+            log.error("❌ India Slack notification failed — check logs above.")
+    else:
+        log.info("Skipping India Slack notification because webhook is not configured.")
 
     # Persist the current run time for next invocation
     save_last_run_time(run_at)

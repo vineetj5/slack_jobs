@@ -268,7 +268,8 @@ class GreenhouseJobExtractor:
             offices = [office.get("name") for office in row.get("offices", []) if office.get("name")]
             location = ", ".join(offices) or "Unknown"
 
-            if not is_usa_location(location):
+            region = get_target_region(location)
+            if not region:
                 continue
                 
             departments = [
@@ -294,6 +295,7 @@ class GreenhouseJobExtractor:
                     tags=departments,
                     is_reposted=is_reposted,
                     original_published_at=raw_published,
+                    region=region,
                 )
             )
         return jobs
@@ -340,39 +342,43 @@ def is_reposted_job(updated_raw: str | int | float | None, published_raw: str | 
         return False
 
 
-def is_usa_location(location: str) -> bool:
+def get_target_region(location: str) -> str | None:
     loc = location.lower()
-    
+
+    india_terms = ["india", "bengaluru", "bangalore", "delhi", "mumbai", "hyderabad", "pune", "gurugram", "noida", "chennai"]
+    if any(term in loc for term in india_terms):
+        return "INDIA"
+
     non_us = [
         "emea", "apac", "uk", "london", "canada", "toronto", "vancouver", "ontario",
-        "india", "bengaluru", "bangalore", "delhi", "mumbai", "europe", "germany",
-        "berlin", "france", "paris", "australia", "sydney", "melbourne", "ireland",
+        "europe", "germany", "berlin", "france", "paris", "australia", "sydney", "melbourne", "ireland",
         "dublin", "singapore", "mexico", "brazil", "spain", "poland"
     ]
     if any(country in loc for country in non_us) and "us" not in loc and "united states" not in loc:
-        return False
+        return None
 
     us_terms = [" us", ", us", "usa", "united states", "remote - us", "remote (us)", "remote, us"]
-    if any(t in loc for t in us_terms) or loc == "us" or loc == "remote" or "remote" in loc:
-        return True
-        
+    if any(term in loc for term in us_terms):
+        return "USA"
+
     states = [
-        "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware", "florida", 
-        "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", 
-        "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", 
-        "nevada", "new hampshire", "new jersey", "new mexico", "new york", "north carolina", "north dakota", 
-        "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", 
-        "texas", "utah", "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming",
-        ", al", ", ak", ", az", ", ar", ", ca", ", co", ", ct", ", de", ", fl", ", ga", ", hi", ", id", ", il", ", in", ", ia", ", ks", 
-        ", ky", ", la", ", me", ", md", ", ma", ", mi", ", mn", ", ms", ", mo", ", mt", ", ne", ", nv", ", nh", ", nj", ", nm", ", ny", 
-        ", nc", ", nd", ", oh", ", ok", ", or", ", pa", ", ri", ", sc", ", sd", ", tn", ", tx", ", ut", ", vt", ", va", ", wa", ", wv", 
-        ", wi", ", wy", "san francisco", "new york", "seattle", "austin", "boston", "chicago", "los angeles", "atlanta"
+        "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware",
+        "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky",
+        "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi",
+        "missouri", "montana", "nebraska", "nevada", "new hampshire", "new jersey", "new mexico",
+        "new york", "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania",
+        "rhode island", "south carolina", "south dakota", "tennessee", "texas", "utah", "vermont",
+        "virginia", "washington", "west virginia", "wisconsin", "wyoming",
+        ", al", ", ak", ", az", ", ar", ", ca", ", co", ", ct", ", de", ", fl", ", ga", ", hi", ", id",
+        ", il", ", in", ", ia", ", ks", ", ky", ", la", ", me", ", md", ", ma", ", mi", ", mn", ", ms",
+        ", mo", ", mt", ", ne", ", nv", ", nh", ", nj", ", nm", ", ny", ", nc", ", nd", ", oh", ", ok",
+        ", or", ", pa", ", ri", ", sc", ", sd", ", tn", ", tx", ", ut", ", vt", ", va", ", wa", ", wv",
+        ", wi", ", wy", "san francisco", "seattle", "austin", "boston", "chicago", "los angeles", "atlanta"
     ]
     if any(s in loc for s in states):
-        return True
+        return "USA"
 
-    # Default: reject unknown locations to ensure only US jobs pass through
-    return False
+    return "USA"
 
 def check_experience(description: str) -> bool:
     pattern = re.compile(r'(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)[^.?!]{0,40}experience', re.IGNORECASE)

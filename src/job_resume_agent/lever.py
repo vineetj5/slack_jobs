@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, is_usa_location, role_matches_title, is_reposted_job
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job
 from .models import JobPosting
 
 
@@ -79,7 +79,8 @@ class LeverJobExtractor:
                     continue
 
             location = row.get("categories", {}).get("location") or "Unknown"
-            if not is_usa_location(location):
+            region = get_target_region(location)
+            if not region:
                 continue
 
             # Construct description from description + lists
@@ -106,6 +107,7 @@ class LeverJobExtractor:
                     tags=[row.get("categories", {}).get("team")] if row.get("categories", {}).get("team") else [],
                     is_reposted=is_reposted,
                     original_published_at=datetime.fromtimestamp(raw_published / 1000.0, tz=timezone.utc).isoformat() if raw_published else None,
+                    region=region,
                 )
             )
         return jobs
