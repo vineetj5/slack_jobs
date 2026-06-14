@@ -29,6 +29,8 @@ from job_resume_agent.lever import LeverJobExtractor
 from job_resume_agent.ashby import AshbyJobExtractor
 from job_resume_agent.workday import WorkdayJobExtractor
 from job_resume_agent.amazon import AmazonJobExtractor
+from job_resume_agent.google import GoogleJobExtractor
+from job_resume_agent.meta import MetaJobExtractor
 from job_resume_agent.slack_notifier import send_slack_notification
 
 # ---------------------------------------------------------------------------
@@ -168,6 +170,22 @@ def process_amazon(hours: float):
     except Exception as exc:
         return "amazon", [], exc
 
+def process_google(hours: float):
+    try:
+        extractor = GoogleJobExtractor(posted_within_hours=hours)
+        jobs = extractor.collect()
+        return "google", jobs, None
+    except Exception as exc:
+        return "google", [], exc
+
+def process_meta(hours: float):
+    try:
+        extractor = MetaJobExtractor(posted_within_hours=hours)
+        jobs = extractor.collect()
+        return "meta", jobs, None
+    except Exception as exc:
+        return "meta", [], exc
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -184,6 +202,7 @@ def main() -> None:
     log.info("Querying %d Ashby boards...", len(ASHBY_BOARDS))
     log.info("Querying %d Workday boards...", len(WORKDAY_BOARDS))
     log.info("Querying Amazon Jobs (amazon.jobs)...")
+    log.info("Querying Google Careers...")
 
     if not SLACK_WEBHOOK_URL:
         log.warning("SLACK_WEBHOOK_URL is not set. USA Slack notifications will be skipped.")
@@ -206,6 +225,8 @@ def main() -> None:
         for board in WORKDAY_BOARDS:
             futures.append(executor.submit(process_workday_board, board, HOURS))
         futures.append(executor.submit(process_amazon, HOURS))
+        futures.append(executor.submit(process_google, HOURS))
+        futures.append(executor.submit(process_meta, HOURS))
 
         for future in concurrent.futures.as_completed(futures):
             board, jobs, exc = future.result()

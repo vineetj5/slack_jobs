@@ -151,21 +151,23 @@ class AmazonJobExtractor:
         jobs: list[JobPosting] = []
         seen_urls: set[str] = set()
 
-        for page_offset in range(0, self.max_pages * _PAGE_SIZE, _PAGE_SIZE):
-            page_jobs, stop_early = self._fetch_page(
-                offset=page_offset,
-                result_limit=_PAGE_SIZE,
-            )
-            for job in page_jobs:
-                dedupe_key = job.url or f"{job.company}:{job.title}:{job.location}"
-                if dedupe_key in seen_urls:
-                    continue
-                seen_urls.add(dedupe_key)
-                jobs.append(job)
+        for role in self.role_terms:
+            for page_offset in range(0, self.max_pages * _PAGE_SIZE, _PAGE_SIZE):
+                page_jobs, stop_early = self._fetch_page(
+                    offset=page_offset,
+                    result_limit=_PAGE_SIZE,
+                    base_query=role,
+                )
+                for job in page_jobs:
+                    dedupe_key = job.url or f"{job.company}:{job.title}:{job.location}"
+                    if dedupe_key in seen_urls:
+                        continue
+                    seen_urls.add(dedupe_key)
+                    jobs.append(job)
 
-            if stop_early:
-                # All remaining results are older than our window; stop paginating
-                break
+                if stop_early:
+                    # All remaining results for this role are older than our window
+                    break
 
         return jobs
 
@@ -173,11 +175,12 @@ class AmazonJobExtractor:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_params(self, offset: int, result_limit: int) -> dict:
+    def _build_params(self, offset: int, result_limit: int, base_query: str) -> dict:
         params: dict = {
             "result_limit": result_limit,
             "offset": offset,
             "sort": "recent",
+            "base_query": base_query,
         }
         if self.categories:
             params["category[]"] = self.categories
@@ -185,7 +188,7 @@ class AmazonJobExtractor:
             params["country[]"] = self.country_codes
         return params
 
-    def _fetch_page(self, offset: int, result_limit: int) -> tuple[list[JobPosting], bool]:
+    def _fetch_page(self, offset: int, result_limit: int, base_query: str) -> tuple[list[JobPosting], bool]:
         """
         Fetch one page of results.
 
@@ -196,7 +199,7 @@ class AmazonJobExtractor:
         try:
             response = requests.get(
                 _SEARCH_URL,
-                params=self._build_params(offset, result_limit),
+                params=self._build_params(offset, result_limit, base_query),
                 headers={
                     "User-Agent": self.config.user_agent,
                     # Disable zstd to avoid urllib3 decompression bug with chunked encoding
@@ -224,10 +227,20 @@ class AmazonJobExtractor:
                 continue
 
             # --- Recency filter ---
-            updated_time = row.get("updated_time")   # "about 20 hours", "1 day" …
-            posted_date_str = row.get("posted_date")  # "June 12, 2026"
+            updated_time = row.get("updated_time")   # "about 20 hours", "12 days" …
+            posted_date_str = row.get("posted_date")  # "September 25, 2025"
 
             estimated_hours = _estimate_posted_hours(updated_time, posted_date_str)
+            
+            # Create a synthetic ISO timestamp for slack_notifier to parse correctly
+            now = datetime.now(tz=timezone.utc)
+            if estimated_hours is not None:
+                synthetic_posted_dt = now - timedelta(hours=estimated_hours)
+                posted_at = synthetic_posted_dt.isoformat()
+            else:
+                p_dt = _parse_posted_date(posted_date_str)
+                posted_at = p_dt.isoformat() if p_dt else (posted_date_str or "")
+
             if estimated_hours is not None:
                 if estimated_hours > self.posted_within_hours:
                     continue  # job is too old
@@ -235,6 +248,20 @@ class AmazonJobExtractor:
                     all_old = False  # at least one job is within our window
             else:
                 all_old = False  # unknown age → include conservatively
+
+            # --- Reposted logic ---
+            # If the updated time is much newer than the original posted date, mark as reposted
+            is_reposted = False
+            original_published_at = posted_date_str or ""
+            p_dt = _parse_posted_date(posted_date_str) if posted_date_str else None
+            
+            if p_dt:
+                original_published_at = p_dt.isoformat()
+                if estimated_hours is not None:
+                    # e.g., updated 12 hours ago, but originally posted 5 days ago (>48h difference)
+                    diff_hours = (synthetic_posted_dt - p_dt).total_seconds() / 3600.0
+                    if diff_hours > 48.0:
+                        is_reposted = True
 
             # --- Location / region filter ---
             location = row.get("location") or row.get("normalized_location") or "Unknown"
@@ -257,9 +284,6 @@ class AmazonJobExtractor:
             job_path = row.get("job_path") or ""
             job_url = f"{self.BASE_URL}{job_path}" if job_path else None
 
-            # Prefer the canonical posted_date for posted_at
-            posted_at = posted_date_str
-
             company = row.get("company_name") or "Amazon"
             job_category = row.get("job_category") or row.get("job_family") or ""
 
@@ -273,8 +297,8 @@ class AmazonJobExtractor:
                     source="amazon",
                     posted_at=posted_at,
                     tags=[job_category] if job_category else [],
-                    is_reposted=False,
-                    original_published_at=posted_date_str,
+                    is_reposted=is_reposted,
+                    original_published_at=original_published_at,
                     region=region,
                 )
             )
