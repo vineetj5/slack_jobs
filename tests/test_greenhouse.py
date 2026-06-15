@@ -1,6 +1,6 @@
 import pytest
 
-from job_resume_agent.greenhouse import normalize_greenhouse_board, role_matches_title
+from job_resume_agent.greenhouse import get_target_region, normalize_greenhouse_board, role_matches_title
 
 
 @pytest.mark.parametrize(
@@ -32,3 +32,20 @@ def test_role_matches_title(title: str) -> None:
 
 def test_role_does_not_match_unrelated_title() -> None:
     assert not role_matches_title("Payroll Manager")
+
+
+@pytest.mark.parametrize(
+    ("location", "expected"),
+    [
+        ("New York, NY", "USA"),
+        ("Remote, United States", "USA"),
+        ("US", "USA"),
+        ("Bengaluru, India", "INDIA"),
+        ("Toronto, Canada", None),
+        ("London, UK", None),
+        ("Remote", None),
+        ("Unknown", None),
+    ],
+)
+def test_get_target_region_requires_explicit_usa_signal(location: str, expected: str | None) -> None:
+    assert get_target_region(location) == expected

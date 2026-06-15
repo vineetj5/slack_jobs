@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
-from job_resume_agent.greenhouse import GreenhouseJobExtractor
+from job_resume_agent.greenhouse import GreenhouseJobExtractor, get_target_region
 from job_resume_agent.smartrecruiters import SmartRecruitersJobExtractor
 from job_resume_agent.lever import LeverJobExtractor
 from job_resume_agent.ashby import AshbyJobExtractor
@@ -241,7 +241,7 @@ def main() -> None:
 
     all_jobs = dedupe_jobs(all_jobs)
 
-    usa_jobs = [j for j in all_jobs if j.region == "USA"]
+    usa_jobs = [j for j in all_jobs if get_target_region(getattr(j, "location", "") or "") == "USA"]
     india_jobs = [j for j in all_jobs if j.region == "INDIA"]
 
     log.info("Total unique jobs found: %d (%d USA, %d India)", len(all_jobs), len(usa_jobs), len(india_jobs))

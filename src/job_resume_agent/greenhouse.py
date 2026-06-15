@@ -344,6 +344,7 @@ def is_reposted_job(updated_raw: str | int | float | None, published_raw: str | 
 
 def get_target_region(location: str) -> str | None:
     loc = location.lower()
+    loc_clean = loc.strip()
 
     india_terms = ["india", "bengaluru", "bangalore", "delhi", "mumbai", "hyderabad", "pune", "gurugram", "noida", "chennai"]
     if any(term in loc for term in india_terms):
@@ -357,7 +358,26 @@ def get_target_region(location: str) -> str | None:
     if any(country in loc for country in non_us) and "us" not in loc and "united states" not in loc:
         return None
 
-    us_terms = [" us", ", us", "usa", "united states", "remote - us", "remote (us)", "remote, us"]
+    if loc_clean in {"us", "usa", "u.s.", "u.s.a.", "united states"}:
+        return "USA"
+
+    us_terms = [
+        " us",
+        ", us",
+        "usa",
+        "united states",
+        "u.s.",
+        "u.s.a.",
+        "remote - us",
+        "remote (us)",
+        "remote, us",
+        "remote - usa",
+        "remote (usa)",
+        "remote, usa",
+        "remote - united states",
+        "remote (united states)",
+        "remote, united states",
+    ]
     if any(term in loc for term in us_terms):
         return "USA"
 
@@ -378,7 +398,7 @@ def get_target_region(location: str) -> str | None:
     if any(s in loc for s in states):
         return "USA"
 
-    return "USA"
+    return None
 
 def check_experience(description: str) -> bool:
     pattern = re.compile(r'(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)[^.?!]{0,40}experience', re.IGNORECASE)
@@ -407,4 +427,3 @@ def check_experience(description: str) -> bool:
         return True
         
     return min(yoes) <= 3
-
