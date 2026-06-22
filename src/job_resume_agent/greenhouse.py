@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import difflib
 import json
 import re
 from datetime import datetime, timedelta, timezone
@@ -257,7 +258,12 @@ def role_matches_title(title: str, role_terms: Iterable[str] = GREENHOUSE_ROLE_T
     if is_staff_title(title):
         return False
     normalized_title = _normalize_text(title)
-    return any(_normalize_text(term) in normalized_title for term in role_terms)
+    for term in role_terms:
+        normalized_term = _normalize_text(term)
+        ratio = difflib.SequenceMatcher(None, normalized_term, normalized_title).ratio()
+        if ratio >= 0.70:
+            return True
+    return False
 
 
 class GreenhouseJobExtractor:

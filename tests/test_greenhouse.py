@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 import pytest
 
 from job_resume_agent.greenhouse import get_target_region, normalize_greenhouse_board, role_matches_title
@@ -32,6 +33,19 @@ def test_role_matches_title(title: str) -> None:
 
 def test_role_does_not_match_unrelated_title() -> None:
     assert not role_matches_title("Payroll Manager")
+
+
+@pytest.mark.parametrize(
+    ("title", "should_match"),
+    [
+        ("Data Analyst II", True),         # High similarity to "Data Analyst"
+        ("Junior Data Analyst", True),     # High similarity to "Data Analyst" / "Junior Data Analyst"
+        ("Finance Manager", False),        # Unrelated domain, no 70%+ similarity matching target roles
+        ("Director of Data Science", False), # Low similarity to "Data Scientist" / "Data Engineer"
+    ],
+)
+def test_role_similarity_threshold(title: str, should_match: bool) -> None:
+    assert role_matches_title(title) == should_match
 
 
 @pytest.mark.parametrize(
