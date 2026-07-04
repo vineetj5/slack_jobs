@@ -348,8 +348,20 @@ class GreenhouseJobExtractor:
         jobs: list[JobPosting] = []
         for row in payload.get("jobs", []):
             title = row.get("title") or ""
-            if not role_matches_title(title, self.role_terms):
+
+            offices = [office.get("name") for office in row.get("offices", []) if office.get("name")]
+            location = ", ".join(offices) or "Unknown"
+
+            region = get_target_region(location)
+            if not region:
                 continue
+
+            if region == "INDIA":
+                if not role_matches_title_india(title):
+                    continue
+            else:
+                if not role_matches_title(title, self.role_terms):
+                    continue
 
             # --- Recency filter ---
             raw_updated = row.get("updated_at")
@@ -361,13 +373,6 @@ class GreenhouseJobExtractor:
                     continue
             
             is_reposted = is_reposted_job(raw_updated, raw_published)
-
-            offices = [office.get("name") for office in row.get("offices", []) if office.get("name")]
-            location = ", ".join(offices) or "Unknown"
-
-            region = get_target_region(location)
-            if not region:
-                continue
                 
             departments = [
                 department.get("name")
@@ -377,7 +382,7 @@ class GreenhouseJobExtractor:
             content = row.get("content") or ""
             description = BeautifulSoup(content, "html.parser").get_text(" ", strip=True)
 
-            if not check_experience(description):
+            if not check_experience(description, region=region, title=title):
                 continue
 
             jobs.append(
@@ -497,7 +502,72 @@ def get_target_region(location: str) -> str | None:
 
     return None
 
-def check_experience(description: str) -> bool:
+def is_india_internship_title(title: str) -> bool:
+    title_lower = title.lower()
+    if not ("intern" in title_lower or "internship" in title_lower or "co-op" in title_lower or "coop" in title_lower):
+        return False
+    tech_keywords = [
+        "software", "sde", "swe", "developer", "engineer", "data", "scientist",
+        "analyst", "machine learning", "ml", "ai", "artificial intelligence",
+        "applied scientist", "researcher", "backend", "frontend", "full stack",
+        "fullstack", "qa", "quality assurance", "programming", "programmer"
+    ]
+    return any(kw in title_lower for kw in tech_keywords)
+
+
+def role_matches_title_india(title: str) -> bool:
+    if is_staff_title(title):
+        return False
+    return role_matches_title(title) or is_india_internship_title(title)
+
+
+def check_experience_india(description: str, title: str) -> bool:
+    title_lower = title.lower()
+    desc_lower = description.lower()
+    
+    # 1. If it's an internship, we always include it.
+    if is_india_internship_title(title):
+        return True
+        
+    # 2. If it is explicitly "new grad" or "graduate", include it.
+    if "new grad" in title_lower or "new grad" in desc_lower:
+        return True
+    if "graduate" in title_lower:
+        return True
+        
+    # 3. Parse years of experience from description
+    pattern = re.compile(r'(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)[^.?!]{0,40}experience', re.IGNORECASE)
+    matches = pattern.finditer(description)
+    
+    yoes = []
+    for m in matches:
+        try:
+            val = int(m.group(1))
+            if 0 <= val <= 25:
+                yoes.append(val)
+        except:
+            pass
+            
+    pattern2 = re.compile(r'experience[^.?!]{0,40}?(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)', re.IGNORECASE)
+    matches2 = pattern2.finditer(description)
+    for m in matches2:
+        try:
+            val = int(m.group(1))
+            if 0 <= val <= 25:
+                yoes.append(val)
+        except:
+            pass
+
+    if not yoes:
+        return True
+        
+    return min(yoes) <= 1
+
+
+def check_experience(description: str, region: str | None = None, title: str = "") -> bool:
+    if region == "INDIA":
+        return check_experience_india(description, title)
+        
     pattern = re.compile(r'(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)[^.?!]{0,40}experience', re.IGNORECASE)
     matches = pattern.finditer(description)
     

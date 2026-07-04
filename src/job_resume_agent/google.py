@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 from .amazon import AMAZON_ROLE_TERMS
 from .config import AppConfig
-from .greenhouse import check_experience, get_target_region, role_matches_title
+from .greenhouse import check_experience, get_target_region, role_matches_title, role_matches_title_india
 from .models import JobPosting
 
 # We reuse AMAZON_ROLE_TERMS as they are generic SDE/SWE/ML roles
@@ -103,8 +103,20 @@ class GoogleJobExtractor:
             if not title or not isinstance(title, str):
                 continue
                 
-            if not role_matches_title(title, self.role_terms):
+            # Extract location
+            location = "Unknown"
+            if len(j) > 9 and j[9] and len(j[9]) > 0 and len(j[9][0]) > 0:
+                location = j[9][0][0]
+            region = get_target_region(location)
+            if not region:
                 continue
+
+            if region == "INDIA":
+                if not role_matches_title_india(title):
+                    continue
+            else:
+                if not role_matches_title(title, self.role_terms):
+                    continue
 
             # Extract timestamps (index 12 is usually posted, index 13 is updated)
             posted_ts = j[12][0] if j[12] else None
@@ -133,14 +145,6 @@ class GoogleJobExtractor:
                 if (active_dt - posted_dt).total_seconds() / 3600.0 > 48.0:
                     is_reposted = True
 
-            # Extract location
-            location = "Unknown"
-            if len(j) > 9 and j[9] and len(j[9]) > 0 and len(j[9][0]) > 0:
-                location = j[9][0][0]
-            region = get_target_region(location)
-            if not region:
-                continue
-
             # Combine descriptions
             desc_html = ""
             if len(j) > 10 and j[10] and len(j[10]) > 1:
@@ -149,7 +153,7 @@ class GoogleJobExtractor:
                 desc_html += " " + (j[4][1] or "")
 
             description = BeautifulSoup(desc_html, "html.parser").get_text(" ", strip=True)
-            if not check_experience(description):
+            if not check_experience(description, region=region, title=title):
                 continue
 
             job_url = j[2]

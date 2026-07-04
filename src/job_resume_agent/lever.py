@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job, role_matches_title_india
 from .models import JobPosting
 
 
@@ -59,8 +59,18 @@ class LeverJobExtractor:
         jobs: list[JobPosting] = []
         for row in payload:
             title = row.get("text") or ""
-            if not role_matches_title(title, self.role_terms):
+
+            location = row.get("categories", {}).get("location") or "Unknown"
+            region = get_target_region(location)
+            if not region:
                 continue
+
+            if region == "INDIA":
+                if not role_matches_title_india(title):
+                    continue
+            else:
+                if not role_matches_title(title, self.role_terms):
+                    continue
 
             # --- Recency filter ---
             # Lever uses 'updatedAt' or 'createdAt' (millis)
@@ -78,11 +88,6 @@ class LeverJobExtractor:
                     # Usually we want new ones only.
                     continue
 
-            location = row.get("categories", {}).get("location") or "Unknown"
-            region = get_target_region(location)
-            if not region:
-                continue
-
             # Construct description from description + lists
             description_html = row.get("description", "")
             for item in row.get("lists", []):
@@ -90,7 +95,7 @@ class LeverJobExtractor:
             
             description = BeautifulSoup(description_html, "html.parser").get_text(" ", strip=True)
 
-            if not check_experience(description):
+            if not check_experience(description, region=region, title=title):
                 continue
                 
             is_reposted = is_reposted_job(raw_updated, raw_published)

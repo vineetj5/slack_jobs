@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job, role_matches_title_india
 from .models import JobPosting
 
 
@@ -56,8 +56,18 @@ class AshbyJobExtractor:
         jobs: list[JobPosting] = []
         for row in payload.get("jobs", []):
             title = row.get("title") or ""
-            if not role_matches_title(title, self.role_terms):
+
+            location = row.get("location") or "Unknown"
+            region = get_target_region(location)
+            if not region:
                 continue
+
+            if region == "INDIA":
+                if not role_matches_title_india(title):
+                    continue
+            else:
+                if not role_matches_title(title, self.role_terms):
+                    continue
 
             # --- Recency filter ---
             # Ashby uses 'updatedAt' or 'publishedAt' (ISO8601)
@@ -75,15 +85,10 @@ class AshbyJobExtractor:
                 else:
                     continue
 
-            location = row.get("location") or "Unknown"
-            region = get_target_region(location)
-            if not region:
-                continue
-
             description_html = row.get("descriptionHtml", "")
             description = BeautifulSoup(description_html, "html.parser").get_text(" ", strip=True)
 
-            if not check_experience(description):
+            if not check_experience(description, region=region, title=title):
                 continue
                 
             is_reposted = is_reposted_job(raw_updated, raw_published)

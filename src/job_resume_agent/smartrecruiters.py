@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, is_reposted_job, role_matches_title_india
 from .models import JobPosting
 
 
@@ -59,17 +59,6 @@ class SmartRecruitersJobExtractor:
 
         for row in payload.get("content", []):
             title = row.get("name") or ""
-            if not role_matches_title(title, self.role_terms):
-                continue
-
-            # --- Recency filter ---
-            raw_updated = row.get("updatedDate")
-            raw_published = row.get("releasedDate")
-            
-            if cutoff is not None:
-                updated_raw = raw_updated or raw_published
-                if not updated_raw or not self._is_within_cutoff(updated_raw, cutoff):
-                    continue
 
             loc_dict = row.get("location", {})
             loc_parts = []
@@ -87,6 +76,22 @@ class SmartRecruitersJobExtractor:
             region = get_target_region(location)
             if not region:
                 continue
+
+            if region == "INDIA":
+                if not role_matches_title_india(title):
+                    continue
+            else:
+                if not role_matches_title(title, self.role_terms):
+                    continue
+
+            # --- Recency filter ---
+            raw_updated = row.get("updatedDate")
+            raw_published = row.get("releasedDate")
+            
+            if cutoff is not None:
+                updated_raw = raw_updated or raw_published
+                if not updated_raw or not self._is_within_cutoff(updated_raw, cutoff):
+                    continue
 
             company_name = row.get("company", {}).get("name") or company_token
             ref_url = row.get("ref")
@@ -121,7 +126,7 @@ class SmartRecruitersJobExtractor:
                 except requests.RequestException:
                     pass
 
-            if not check_experience(description):
+            if not check_experience(description, region=region, title=title):
                 continue
                 
             is_reposted = is_reposted_job(raw_updated, raw_published)

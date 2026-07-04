@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .config import AppConfig
-from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title
+from .greenhouse import GREENHOUSE_ROLE_TERMS, check_experience, get_target_region, role_matches_title, role_matches_title_india
 from .models import JobPosting
 
 log = logging.getLogger(__name__)
@@ -78,20 +78,25 @@ class WorkdayJobExtractor:
         jobs: list[JobPosting] = []
         for row in data.get("jobPostings", []):
             title = row.get("title") or ""
-            if not role_matches_title(title, self.role_terms):
+
+            # Location: Workday uses 'locationsText' in results
+            location = row.get("locationsText") or "Unknown"
+            region = get_target_region(location)
+            if not region:
                 continue
+
+            if region == "INDIA":
+                if not role_matches_title_india(title):
+                    continue
+            else:
+                if not role_matches_title(title, self.role_terms):
+                    continue
 
             # Workday recency: Posted Today, Posted Yesterday, etc.
             posted_on = str(row.get("postedOn", "")).lower()
             # If posted_within_hours is small (<= 24), we only care about roles posted 'today'
             # Note: Workday precision is limited, so 'today' is our best proxy for hourly notify.
             if "today" not in posted_on and self.posted_within_hours <= 24:
-                continue
-
-            # Location: Workday uses 'locationsText' in results
-            location = row.get("locationsText") or "Unknown"
-            region = get_target_region(location)
-            if not region:
                 continue
 
             # Need detail for description
@@ -110,7 +115,7 @@ class WorkdayJobExtractor:
                 continue
 
             description = BeautifulSoup(job_desc_data, "html.parser").get_text(" ", strip=True)
-            if not check_experience(description):
+            if not check_experience(description, region=region, title=title):
                 continue
 
             # public URL format

@@ -13,6 +13,7 @@ from .greenhouse import (
     check_experience,
     get_target_region,
     role_matches_title,
+    role_matches_title_india,
 )
 from .models import JobPosting
 
@@ -223,8 +224,19 @@ class AmazonJobExtractor:
 
         for row in raw_jobs:
             title = row.get("title") or ""
-            if not role_matches_title(title, self.role_terms):
+
+            # --- Location / region filter ---
+            location = row.get("location") or row.get("normalized_location") or "Unknown"
+            region = get_target_region(location)
+            if not region:
                 continue
+
+            if region == "INDIA":
+                if not role_matches_title_india(title):
+                    continue
+            else:
+                if not role_matches_title(title, self.role_terms):
+                    continue
 
             # --- Recency filter ---
             updated_time = row.get("updated_time")   # "about 20 hours", "12 days" …
@@ -263,12 +275,6 @@ class AmazonJobExtractor:
                     if diff_hours > 48.0:
                         is_reposted = True
 
-            # --- Location / region filter ---
-            location = row.get("location") or row.get("normalized_location") or "Unknown"
-            region = get_target_region(location)
-            if not region:
-                continue
-
             # --- Experience filter from description ---
             description_html = (
                 row.get("description") or
@@ -277,7 +283,7 @@ class AmazonJobExtractor:
             )
             description = BeautifulSoup(description_html, "html.parser").get_text(" ", strip=True)
 
-            if not check_experience(description):
+            if not check_experience(description, region=region, title=title):
                 continue
 
             # --- Build job URL ---
