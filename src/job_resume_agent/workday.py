@@ -79,6 +79,13 @@ class WorkdayJobExtractor:
         for row in data.get("jobPostings", []):
             title = row.get("title") or ""
 
+            # --- Recency filter FIRST (no HTTP cost) ---
+            posted_on = str(row.get("postedOn", "")).lower()
+            # If posted_within_hours is small (<= 24), we only care about roles posted 'today'
+            # Note: Workday precision is limited, so 'today' is our best proxy for hourly notify.
+            if "today" not in posted_on and self.posted_within_hours <= 24:
+                continue
+
             # Location: Workday uses 'locationsText' in results
             location = row.get("locationsText") or "Unknown"
             region = get_target_region(location)
@@ -92,14 +99,7 @@ class WorkdayJobExtractor:
                 if not role_matches_title(title, self.role_terms):
                     continue
 
-            # Workday recency: Posted Today, Posted Yesterday, etc.
-            posted_on = str(row.get("postedOn", "")).lower()
-            # If posted_within_hours is small (<= 24), we only care about roles posted 'today'
-            # Note: Workday precision is limited, so 'today' is our best proxy for hourly notify.
-            if "today" not in posted_on and self.posted_within_hours <= 24:
-                continue
-
-            # Need detail for description
+            # Need detail for description — only fetched after all cheap filters pass
             external_path = row.get("externalPath") # e.g. /job/Salesforce/Software-Engineer_JR123
             if not external_path:
                 continue

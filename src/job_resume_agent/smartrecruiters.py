@@ -60,6 +60,14 @@ class SmartRecruitersJobExtractor:
         for row in payload.get("content", []):
             title = row.get("name") or ""
 
+            # --- Recency filter FIRST (cheapest check, skip stale jobs before any HTTP) ---
+            raw_updated = row.get("updatedDate")
+            raw_published = row.get("releasedDate")
+            if cutoff is not None:
+                updated_raw = raw_updated or raw_published
+                if not updated_raw or not self._is_within_cutoff(updated_raw, cutoff):
+                    continue
+
             loc_dict = row.get("location", {})
             loc_parts = []
             if loc_dict.get("city"):
@@ -84,15 +92,6 @@ class SmartRecruitersJobExtractor:
                 if not role_matches_title(title, self.role_terms):
                     continue
 
-            # --- Recency filter ---
-            raw_updated = row.get("updatedDate")
-            raw_published = row.get("releasedDate")
-            
-            if cutoff is not None:
-                updated_raw = raw_updated or raw_published
-                if not updated_raw or not self._is_within_cutoff(updated_raw, cutoff):
-                    continue
-
             company_name = row.get("company", {}).get("name") or company_token
             ref_url = row.get("ref")
             absolute_url = row.get("applyUrl") or f"https://jobs.smartrecruiters.com/{company_token}/{row.get('id')}"
@@ -103,6 +102,7 @@ class SmartRecruitersJobExtractor:
 
             # To do experience filtering properly via regex, we need the description.
             # Smart Recruiters hides description in the individual posting `ref`.
+            # Only fetch description if the job passes all cheaper filters above.
             description = ""
             if ref_url:
                 try:
