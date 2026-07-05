@@ -1,6 +1,3 @@
-"""Job Resume Agent package."""
+"""Job notifier package."""
 
-from .workflow import AgenticJobSearchWorkflow
-
-__all__ = ["AgenticJobSearchWorkflow"]
-
+__all__: list[str] = []

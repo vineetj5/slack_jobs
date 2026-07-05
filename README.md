@@ -1,128 +1,100 @@
-# Job Resume Agent
+# Job Notifier
 
-An end-to-end Python project that:
+A Python job-board scanner that finds recently posted early-career software, data, AI/ML, analytics, backend, DevOps, and related roles, writes the results locally, and sends Slack alerts.
 
-1. scrapes job postings from supplied URLs or local HTML files,
-2. normalizes and scores the jobs against a target profile,
-3. generates a tailored resume draft and cover-letter notes,
-4. runs the flow as an agentic pipeline with clear handoffs.
+The project now keeps only the job notification flow. The previous resume-tailoring agent workflow has been removed.
 
-This repo is built to be useful immediately in a local environment and easy to extend with a real LLM provider later.
+## What It Scans
 
-## What makes it "agentic"
+The main runner, `notify_jobs.py`, checks:
 
-The workflow is split into specialized agents:
+- Greenhouse boards from `greenhouse_boards.txt`
+- SmartRecruiters boards from `smartrecruiters_boards.txt`
+- Lever boards from `lever_boards.txt`
+- Ashby boards from `ashby_boards.txt`
+- Workday boards from `workday_boards.txt`
+- Amazon Jobs
+- Google Careers
+- Meta Careers
 
-- `PlannerAgent`: turns user goals into search terms and targeting guidance.
-- `ScraperAgent`: pulls jobs from URLs or local HTML and normalizes them.
-- `AnalystAgent`: scores jobs against a candidate profile.
-- `ResumeAgent`: tailors resume summary, skills, and impact bullets.
-- `WriterAgent`: exports markdown and JSON artifacts.
+Each extractor normalizes results into a shared `JobPosting` model, filters by recency, target region, role title, and experience level, then returns jobs to the notifier.
 
-Each agent has a bounded responsibility, passes structured data forward, and can optionally use an LLM if `OPENAI_API_KEY` plus `OPENAI_MODEL` are set. Without those variables, the system uses deterministic heuristics so the project still works end to end.
-
-## Quickstart
+## Setup
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
-job-resume-agent demo
 ```
 
-The demo command reads a bundled sample job page and sample profile, then writes output to `output/demo`.
-
-## CLI
+Optional Slack webhook environment variables:
 
 ```bash
-job-resume-agent demo
-job-resume-agent scrape --source data/sample_jobs.html --output output/jobs.json
-job-resume-agent greenhouse --board openai --board https://boards.greenhouse.io/airbnb --output output/greenhouse_jobs.json
-job-resume-agent run --profile data/sample_profile.yaml --source data/sample_jobs.html --outdir output/run
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+export SLACK_INDIA_WEBHOOK_URL="https://hooks.slack.com/services/..."
 ```
 
-### `demo`
+If a webhook is not set, that Slack notification is skipped, but JSON and CSV output are still written.
 
-Runs the full pipeline using bundled sample inputs.
+## Run The Notifier
 
-### `scrape`
-
-Collects jobs from one or more sources.
-
-- `--source`: local HTML path or remote URL. Can be provided multiple times.
-- `--output`: JSON output file for normalized job data.
-
-### `greenhouse`
-
-Collects public jobs from one or more Greenhouse boards, then keeps roles matching the data, AI/ML, analytics, backend, DevOps, and new-grad role titles from the target role list.
-
-- `--board`: Greenhouse board token or URL. Can be provided multiple times.
-- `--output`: path to write the filtered jobs.
-- `--format`: `json` or `csv`.
-
-### `run`
-
-Runs the complete workflow.
-
-- `--profile`: YAML candidate profile.
-- `--source`: local HTML path or remote URL. Can be provided multiple times.
-- `--outdir`: directory for generated artifacts.
-- `--top-k`: how many top jobs to tailor for.
-
-## Project layout
-
-```text
-src/job_resume_agent/
-  cli.py
-  config.py
-  llm.py
-  models.py
-  resume.py
-  scraper.py
-  workflow.py
-templates/
-  resume.md.j2
-data/
-  sample_jobs.html
-  sample_profile.yaml
-tests/
-  test_workflow.py
+```bash
+python notify_jobs.py
 ```
 
-## Candidate profile format
+The script:
 
-```yaml
-name: Jane Doe
-title: Senior Data Analyst
-location: New York, NY
-email: jane@example.com
-phone: "+1-555-111-2222"
-linkedin: linkedin.com/in/janedoe
-summary:
-  - Analytics leader with 6+ years of experience
-skills:
-  - Python
-  - SQL
-experience:
-  - company: Acme Corp
-    role: Senior Data Analyst
-    achievements:
-      - Improved dashboard performance by 45%
+1. Reads `last_run.txt` to determine the scan window.
+2. Loads all board list files.
+3. Scrapes all providers concurrently.
+4. Deduplicates jobs.
+5. Splits jobs into USA and India notifications.
+6. Writes `output/latest_jobs.json` and `output/latest_jobs.csv`.
+7. Sends Slack notifications when webhook URLs are configured.
+8. Updates `last_run.txt` for the next run.
+
+## Refresh Board Lists
+
+Use `sync_boards.py` after editing `companies.txt`:
+
+```bash
+python sync_boards.py
+```
+
+It probes each company against supported job-board APIs and rewrites the provider-specific board files.
+
+## Greenhouse-Only Runner
+
+For a smaller manual scan, `run_greenhouse.py` checks a curated in-file Greenhouse board list:
+
+```bash
+python run_greenhouse.py
 ```
 
 ## Outputs
 
-Running the workflow creates:
+- `output/latest_jobs.json`: full normalized job payloads
+- `output/latest_jobs.csv`: spreadsheet-friendly job list
+- `last_run.txt`: timestamp used to compute the next incremental scan window
 
-- `jobs.json`: normalized scraped jobs
-- `matches.json`: ranked jobs with reasoning
-- `tailored_resume.md`: markdown resume draft
-- `application_notes.md`: application strategy notes
-- `workflow_report.md`: summary of what each agent did
+## Project Layout
 
-## Extension ideas
-
-- Add site-specific parsers for LinkedIn, Greenhouse, Lever, Ashby, and Workday.
-- Swap the simple LLM adapter with a richer provider abstraction.
-- Generate PDF output from the markdown resume.
-- Add a browser automation step for application filling.
+```text
+notify_jobs.py                 # Main multi-provider Slack notifier
+sync_boards.py                 # Rebuilds provider board lists from companies.txt
+run_greenhouse.py              # Manual Greenhouse-only scanner
+src/job_resume_agent/
+  amazon.py
+  ashby.py
+  config.py
+  google.py
+  greenhouse.py
+  lever.py
+  meta.py
+  models.py
+  slack_notifier.py
+  smartrecruiters.py
+  workday.py
+tests/
+  test_greenhouse.py
+```
