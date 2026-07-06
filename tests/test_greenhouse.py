@@ -97,7 +97,7 @@ def test_check_experience_india() -> None:
     assert check_experience("Required: 3 years of experience. Target: new grads.", region="INDIA", title="Software Engineer")
     assert check_experience("Required: 3 years of experience.", region="INDIA", title="New Grad Software Engineer")
 
-    # 3. India experience filter (min experience <= 1 year)
+    # 3. India experience filter (all parsed requirements must be <= 1 year)
     assert check_experience("We require 0 years of experience.", region="INDIA", title="Software Engineer")
     assert check_experience("We require 0+ years of experience.", region="INDIA", title="Software Engineer")
     assert check_experience("We require 1+ years of experience.", region="INDIA", title="Software Engineer")
@@ -105,7 +105,12 @@ def test_check_experience_india() -> None:
     assert check_experience("We require 1 year of experience.", region="INDIA", title="Software Engineer")
     assert not check_experience("We require 2 years of experience.", region="INDIA", title="Software Engineer")
     assert not check_experience("We require 2+ years of experience.", region="INDIA", title="Software Engineer")
+    assert not check_experience("We require 1-2 years of experience.", region="INDIA", title="Software Engineer")
+    assert not check_experience("We require 4+ years of exp and 1+ years in Python.", region="INDIA", title="Software Engineer")
+    assert not check_experience("Required experience: 3+ years. Nice to have 1+ years SQL.", region="INDIA", title="Data Engineer")
+    assert not check_experience("Strong Python skills and SQL knowledge.", region="INDIA", title="Software Engineer")
 
     # 4. Default / USA experience filter (min experience <= 3 years)
     assert check_experience("We require 2+ years of experience.", region="USA", title="Software Engineer")
     assert not check_experience("We require 4+ years of experience.", region="USA", title="Software Engineer")
+    assert check_experience("We require 4+ years of experience and 1+ years in Python.", region="USA", title="Software Engineer")

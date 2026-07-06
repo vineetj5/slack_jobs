@@ -534,34 +534,53 @@ def check_experience_india(description: str, title: str) -> bool:
         return True
     if "graduate" in title_lower:
         return True
-        
-    # 3. Parse years of experience from description
-    pattern = re.compile(r'(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)[^.?!]{0,40}experience', re.IGNORECASE)
-    matches = pattern.finditer(description)
-    
-    yoes = []
-    for m in matches:
-        try:
-            val = int(m.group(1))
-            if 0 <= val <= 25:
-                yoes.append(val)
-        except:
-            pass
-            
-    pattern2 = re.compile(r'experience[^.?!]{0,40}?(\d+)\s*(?:\+|-|to)?\s*(?:\d*\s*)\+?\s*(?:years?|yrs?)', re.IGNORECASE)
-    matches2 = pattern2.finditer(description)
-    for m in matches2:
-        try:
-            val = int(m.group(1))
-            if 0 <= val <= 25:
-                yoes.append(val)
-        except:
-            pass
 
-    if not yoes:
-        return True
-        
-    return min(yoes) <= 1
+    year_requirements = _extract_india_year_requirements(description)
+    if not year_requirements:
+        return False
+
+    return all(max_year <= 1 for _, max_year in year_requirements)
+
+
+def _extract_india_year_requirements(description: str) -> list[tuple[int, int]]:
+    requirements: list[tuple[int, int]] = []
+
+    patterns = [
+        re.compile(
+            r'(?P<start>\d+)\s*(?P<op>\+|-|to)?\s*(?P<end>\d+)?\s*\+?\s*(?:years?|yrs?)[^.?!]{0,40}(?:experience|exp)',
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r'(?:experience|exp)[^.?!]{0,40}?(?P<start>\d+)\s*(?P<op>\+|-|to)?\s*(?P<end>\d+)?\s*\+?\s*(?:years?|yrs?)',
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r'(?P<start>\d+)\s*(?P<op>\+|-|to)?\s*(?P<end>\d+)?\s*\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:relevant\s+|professional\s+|work\s+)?(?:experience|exp)',
+            re.IGNORECASE,
+        ),
+    ]
+
+    for pattern in patterns:
+        for match in pattern.finditer(description):
+            start = _parse_year_value(match.group("start"))
+            end = _parse_year_value(match.group("end"))
+            if start is None:
+                continue
+
+            max_year = end if end is not None else start
+            if 0 <= start <= 25 and 0 <= max_year <= 25:
+                requirements.append((start, max_year))
+
+    return requirements
+
+
+def _parse_year_value(value: str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 def check_experience(description: str, region: str | None = None, title: str = "") -> bool:
