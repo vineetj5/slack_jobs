@@ -537,7 +537,7 @@ def check_experience_india(description: str, title: str) -> bool:
 
     year_requirements = _extract_india_year_requirements(description)
     if not year_requirements:
-        return False
+        return True
 
     return all(max_year <= 1 for _, max_year in year_requirements)
 

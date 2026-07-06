@@ -108,7 +108,8 @@ def test_check_experience_india() -> None:
     assert not check_experience("We require 1-2 years of experience.", region="INDIA", title="Software Engineer")
     assert not check_experience("We require 4+ years of exp and 1+ years in Python.", region="INDIA", title="Software Engineer")
     assert not check_experience("Required experience: 3+ years. Nice to have 1+ years SQL.", region="INDIA", title="Data Engineer")
-    assert not check_experience("Strong Python skills and SQL knowledge.", region="INDIA", title="Software Engineer")
+    assert check_experience("Strong Python skills and SQL knowledge.", region="INDIA", title="Software Engineer")
+    assert check_experience("Join as a full-time software engineer in Bengaluru.", region="INDIA", title="Software Engineer, Full Time")
 
     # 4. Default / USA experience filter (min experience <= 3 years)
     assert check_experience("We require 2+ years of experience.", region="USA", title="Software Engineer")
