@@ -12,7 +12,7 @@ The main runner, `notify_jobs.py`, checks:
 - SmartRecruiters boards from `smartrecruiters_boards.txt`
 - Lever boards from `lever_boards.txt`
 - Ashby boards from `ashby_boards.txt`
-- Workday boards from `workday_boards.txt`
+- Workday company URLs from `workday_companies.yaml`
 - Amazon Jobs
 - Google Careers
 - Meta Careers
@@ -46,7 +46,7 @@ The script:
 
 1. Reads `last_run.txt` to determine the scan window.
 2. Loads all board list files.
-3. Scrapes all providers concurrently.
+3. Scrapes all providers concurrently. Workday uses the YAML-backed URL scanner.
 4. Deduplicates jobs.
 5. Splits jobs into USA and India notifications.
 6. Writes `output/latest_jobs.json` and `output/latest_jobs.csv`.

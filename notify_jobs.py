@@ -27,11 +27,11 @@ from job_resume_agent.greenhouse import GreenhouseJobExtractor, get_target_regio
 from job_resume_agent.smartrecruiters import SmartRecruitersJobExtractor
 from job_resume_agent.lever import LeverJobExtractor
 from job_resume_agent.ashby import AshbyJobExtractor
-from job_resume_agent.workday import WorkdayJobExtractor
 from job_resume_agent.amazon import AmazonJobExtractor
 from job_resume_agent.google import GoogleJobExtractor
 from job_resume_agent.meta import MetaJobExtractor
 from job_resume_agent.slack_notifier import send_slack_notification
+from run_workday_jobs import WorkdayUrlScanner, load_feeds
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -43,6 +43,9 @@ DEFAULT_HOURS = 1.0
 MAX_WORKERS = 20
 NOTIFY_ON_EMPTY = False
 LAST_RUN_FILE = ROOT_DIR / "last_run.txt"
+WORKDAY_COMPANIES_YAML = Path(
+    os.environ.get("WORKDAY_COMPANIES_YAML", ROOT_DIR / "workday_companies.yaml")
+)
 
 
 def compute_hours_since_last_run() -> float:
@@ -78,7 +81,6 @@ BOARDS = load_boards("greenhouse_boards.txt")
 SMARTRECRUITERS_BOARDS = load_boards("smartrecruiters_boards.txt")
 LEVER_BOARDS = load_boards("lever_boards.txt")
 ASHBY_BOARDS = load_boards("ashby_boards.txt")
-WORKDAY_BOARDS = load_boards("workday_boards.txt")
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -154,13 +156,14 @@ def process_ashby_board(board: str, hours: float):
     except Exception as exc:
         return f"AS:{board}", [], exc
 
-def process_workday_board(board: str, hours: float):
+def process_workday_yaml(hours: float):
     try:
-        extractor = WorkdayJobExtractor(posted_within_hours=hours)
-        jobs = extractor.collect([board])
-        return f"WD:{board}", jobs, None
+        feeds = load_feeds(WORKDAY_COMPANIES_YAML)
+        extractor = WorkdayUrlScanner(posted_within_hours=hours)
+        jobs = extractor.collect(feeds)
+        return f"WD:{WORKDAY_COMPANIES_YAML.name}", jobs, None
     except Exception as exc:
-        return f"WD:{board}", [], exc
+        return f"WD:{WORKDAY_COMPANIES_YAML.name}", [], exc
 
 def process_amazon(hours: float):
     try:
@@ -200,7 +203,7 @@ def main() -> None:
     log.info("Querying %d SmartRecruiters boards...", len(SMARTRECRUITERS_BOARDS))
     log.info("Querying %d Lever boards...", len(LEVER_BOARDS))
     log.info("Querying %d Ashby boards...", len(ASHBY_BOARDS))
-    log.info("Querying %d Workday boards...", len(WORKDAY_BOARDS))
+    log.info("Querying Workday feeds from %s...", WORKDAY_COMPANIES_YAML)
     log.info("Querying Amazon Jobs (amazon.jobs)...")
     log.info("Querying Google Careers...")
 
@@ -222,8 +225,7 @@ def main() -> None:
             futures.append(executor.submit(process_lever_board, board, HOURS))
         for board in ASHBY_BOARDS:
             futures.append(executor.submit(process_ashby_board, board, HOURS))
-        for board in WORKDAY_BOARDS:
-            futures.append(executor.submit(process_workday_board, board, HOURS))
+        futures.append(executor.submit(process_workday_yaml, HOURS))
         futures.append(executor.submit(process_amazon, HOURS))
         futures.append(executor.submit(process_google, HOURS))
         futures.append(executor.submit(process_meta, HOURS))
